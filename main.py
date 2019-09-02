@@ -2,9 +2,10 @@ import os
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import redis
 import threading
+from datetime import date, timedelta
 
 
-r = redis.Redis()
+r = redis.Redis(host="localhost", charset="utf-8", decode_responses=True)
 
 timers = {}
 
@@ -24,33 +25,51 @@ def check_if_cheating(update, context):
 
 
 def end_pomodoro(bot, hash_name, chat_id, username, count):
+    """
+    Callback for successful pomodoro timer
+    """
     r.hincrby(hash_name, "count")
+    r.lpush(f"{hash_name}:list", date.today().isoformat())
     timers[hash_name] = None
 
     bot.send_message(
-        chat_id=chat_id, text=f"🍅 @{username} ha completato il pomodoro #{count + 1}"
+        chat_id=chat_id, text=f"🍅 @{username} ha completato il pomodoro #{count}"
     )
 
 
-def start_pomodoro(bot, update):
+def start_pomodoro(update, context):
+    """
+    Handles new pomodoro timer
+    """
     user_id = update.message.from_user.id
     username = update.message.from_user.username
     chat_id = update.message.chat.id
-
     hash_name = f"pomodoro:{chat_id}:{user_id}"
+
+    # if timer already exists cancel
+    timer = timers.get(hash_name, None)
+    if timer is not None:
+        timer.cancel()
+
+    # initialize hash if not present
     if r.hexists(hash_name, "count"):
-        pomodoro_counts = r.hget(hash_name, "count")
+        pomodoro_counts = int(r.hget(hash_name, "count")) + 1
     else:
-        pomodoro_counts = 0
+        pomodoro_counts = 0 + 1
         r.hset(hash_name, "count", 0)
+        r.hset(hash_name, "username", username)
 
-    timers[hash_name] = threading.Timer(
-        1500, end_pomodoro, [bot, hash_name, chat_id, username, pomodoro_counts]
+    # set timer and store in global dict
+    timer = threading.Timer(
+        25 * 60,
+        end_pomodoro,
+        [context.bot, hash_name, chat_id, username, pomodoro_counts],
     )
+    timers[hash_name] = timer
+    timer.start()
 
-    timers[hash_name].start()
-    bot.send_message(
-        chat_id=chat_id, text=f"🍅 Pomodoro #{pomodoro_counts + 1} per @{username}"
+    context.bot.send_message(
+        chat_id=chat_id, text=f"🍅 Pomodoro #{pomodoro_counts} per @{username}"
     )
 
 
