@@ -5,7 +5,12 @@ import threading
 from datetime import date, timedelta
 
 
-r = redis.Redis(host="localhost", charset="utf-8", decode_responses=True)
+r = redis.Redis(
+    host="localhost",
+    charset="utf-8",
+    decode_responses=True,
+    db=os.environ["REDIS_DB_NUM"],
+)
 
 timers = {}
 
