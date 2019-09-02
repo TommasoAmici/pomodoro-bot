@@ -9,7 +9,7 @@ r = redis.Redis()
 timers = {}
 
 
-def check_if_cheating(bot, update):
+def check_if_cheating(update, context):
     user_id = update.message.from_user.id
     username = update.message.from_user.username
     chat_id = update.message.chat.id
@@ -18,7 +18,7 @@ def check_if_cheating(bot, update):
     if timers[hash_name] is not None:
         timers[hash_name].cancel()
         timers[hash_name] = None
-        bot.send_message(
+        context.bot.send_message(
             chat_id=update.message.chat_id, text=f"@{username} ha barato 😡"
         )
 
@@ -57,7 +57,7 @@ def start_pomodoro(bot, update):
 updater = Updater(os.environ["POMODORO_TELEGRAM_TOKEN"])
 
 updater.dispatcher.add_handler(CommandHandler("pomodoro", start_pomodoro))
-updater.dispatcher.add_handler(MessageHandler(Filters.text, check_if_cheating))
+updater.dispatcher.add_handler(MessageHandler(Filters.all, check_if_cheating))
 
 updater.start_polling()
 updater.idle()
